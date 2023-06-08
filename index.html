@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>App Proyecto Final</title>
+  <script src="xlsx-populate.min.js"></script>
+  <script src="jspdf.min.js"></script>
+  <script src="chart.js"></script>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: #dddddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Codigo Postal</h1>
+  <input type="file" id="fileInput">
+  <h2>Mostrar contenido</h2>
+  <button onclick="exportToExcel('xlsx')">Exportar a Excel</button>
+  <button onclick="exportToPDF()">Exportar a PDF</button>
+  <button onclick="exportToWord('dataListView', 'datos');">Exportar a Word</button>
+  <button onclick="exportToCSV()">Exportar a CSV</button>
+  <button id="graficarBtn">Generar gráfico</button>
+<canvas id="myChart"></canvas>
+  <table id="dataListView"></table>
+  <div id="tableContainer"></div>
+  <script>
+    document.getElementById('graficarBtn').addEventListener('click', function() {
+    // Obtén el contexto del canvas
+    var ctx = document.getElementById('myChart').getContext('2d');
+  
+    // Obtén la tabla
+    var table = document.getElementById('dataListView');
+  
+    // Crea un objeto para almacenar la cantidad de códigos postales por estado
+    var codigosPorEstado = {};
+  
+    // Recorre las filas de la tabla (comenzando desde la segunda fila, ya que la primera es el encabezado)
+    for (var i = 1; i < table.rows.length; i++) {
+      var row = table.rows[i];
+  
+      // Obtén el estado y el código postal de la fila actual
+      var estado = row.cells[0].innerText;
+      var codigoPostal = row.cells[1].innerText;
+  
+      // Si el estado no existe en el objeto, inicialízalo con el valor 1; de lo contrario, incrementa el contador
+      if (!codigosPorEstado[estado]) {
+        codigosPorEstado[estado] = 1;
+      } else {
+        codigosPorEstado[estado]++;
+      }
+    }
+  
+    // Crea los arrays para las etiquetas y los datos
+    var labels = Object.keys(codigosPorEstado);
+    var data = Object.values(codigosPorEstado);
+  
+    // Crea el objeto de datos para el gráfico
+    var chartData = {
+      labels: labels,
+      datasets: [{
+        label: 'Códigos postales por estado',
+        data: data,
+        backgroundColor: 'rgba(0, 123, 255, 0.5)'
+      }]
+    };
+  
+    // Configura las opciones del gráfico
+    var options = {
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    };
+  
+    // Crea el gráfico utilizando Chart.js
+    var myChart = new Chart(ctx, {
+      type: 'bar',
+      data: chartData,
+      options: options
+    });
+  });
+  
+  
+      function exportToExcel(type, fn, dl) {
+        var elt = document.getElementById('dataListView');
+        var wb = XLSX.utils.table_to_book(elt, { sheet: "sheet1" });
+        return dl ?
+            XLSX.write(wb, { bookType: type, bookSST: true, type: 'base64' }) :
+            XLSX.writeFile(wb, fn || ('datos.' + (type || 'xlsx')));
+      }
+      
+      function exportToPDF() {
+        var element = document.getElementById('dataListView');
+        html2pdf().from(element).save('datos.pdf');
+      }
+  
+      function exportToWord(element, filename = '') {
+        var table = document.getElementById(element);
+        var html = table.outerHTML;
+  
+        // Agregar el encabezado del documento Word
+        var preHtml = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Exportar HTML a Doc</title></head><body>";
+        var postHtml = "</body></html>";
+  
+        // Combinar el encabezado, la tabla y el pie de página en un solo HTML
+        var fullHtml = preHtml + html + postHtml;
+  
+        // Crear el enlace de descarga
+        var downloadLink = document.createElement("a");
+        document.body.appendChild(downloadLink);
+  
+        // Crear el objeto Blob y generar la URL para descargar el archivo
+        var blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+        var url = URL.createObjectURL(blob);
+  
+        // Establecer las propiedades del enlace de descarga
+        downloadLink.href = url;
+        downloadLink.download = filename + ".doc";
+        downloadLink.click();
+  
+        // Limpiar
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(url);
+      }
+  
+      function exportToCSV() {
+        const tabla = document.getElementById('dataListView');
+        const datos = obtenerDatosTabla(tabla);
+  
+        const contenido = datos.map(valores => valores.join(',')).join('\n');
+        const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+        descargarArchivo(blob, 'datos.csv');
+      }
+  
+      function obtenerDatosTabla(tabla) {
+        const datos = [];
+        const filas = tabla.getElementsByTagName('tr');
+        for (let i = 0; i < filas.length; i++) {
+          const celdas = filas[i].getElementsByTagName('td');
+          const valores = [];
+          for (let j = 0; j < celdas.length; j++) {
+            valores.push(celdas[j].textContent);
+          }
+          datos.push(valores);
+        }
+        return datos;
+      }
+  
+      function descargarArchivo(blob, nombreArchivo) {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = nombreArchivo;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        link.remove();
+      }
+  
+      function leerArchivo(e) {
+        const archivo = e.target.files[0];
+        if (!archivo) {
+          return;
+        }
+        const lector = new FileReader();
+        lector.onload = function(e) {
+          const contenido = e.target.result;
+          mostrarContenido(contenido);
+        };
+        lector.readAsText(archivo);
+      }
+  
+      function mostrarContenido(contenido) {
+        const tabla = document.getElementById('dataListView');
+        tabla.innerHTML = ''; // Limpiar el contenido de la tabla
+  
+        const lineas = contenido.split('\n');
+        for (let i = 0; i < lineas.length; i++) {
+          const valores = lineas[i].split('|');
+  
+          const fila = document.createElement('tr');
+          for (let j = 0; j < valores.length; j++) {
+            const celda = document.createElement('td');
+            celda.textContent = valores[j];
+            fila.appendChild(celda);
+          }
+  
+          tabla.appendChild(fila);
+        }
+      }
+  
+      document.querySelector('#fileInput').addEventListener('change', leerArchivo, false);
+  </script>
+</body>
+</html>

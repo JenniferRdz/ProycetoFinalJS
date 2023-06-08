@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Proyecto Final</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Rango</h1>
+    <label for="fechaInicio">Fecha Desde:</label>
+    <input type="date" id="fechaInicio">
+    <br>
+    <label for="fechaFin">Fecha Hasta:</label>
+    <input type="date" id="fechaFin">
+    <br>
+    <button onclick="realizarConsulta()">Realizar consulta</button>
+    <button onclick="graficarPrecios()">Graficar</button>
+    <br>
+    <div id="chartContainer">
+        <canvas id="chart1"></canvas>
+    </div>
+    <div id="resultado"></div>
+    
+    <script>
+        var precios = [];
+        var fechas = [];
+        var chart;
+
+        function realizarConsulta() {
+            var fechaInicio = document.getElementById('fechaInicio').value;
+            var fechaFin = document.getElementById('fechaFin').value;
+
+            if (fechaInicio && fechaFin) {
+                var url = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/' + fechaInicio + '/' + fechaFin + '?token=4e9735608ebee06f596340c29118d3675cd9758f600cdfae6410aabfe80fdc7e';
+
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    dataType: 'json',
+                    success: function (data) {
+                        mostrarResultado(data);
+                    },
+                    error: function (error) {
+                        console.log(error);
+                    }
+                });
+            } else {
+                alert('Por favor, selecciona la fecha de inicio y fin.');
+            }
+        }
+
+        function mostrarResultado(data) {
+            var resultadoDiv = document.getElementById('resultado');
+            resultadoDiv.innerHTML = '';
+
+            if (data.bmx.series.length > 0) {
+                var serie = data.bmx.series[0];
+                var registros = serie.datos;
+
+                if (registros.length > 0) {
+                    precios = [];
+                    fechas = [];
+
+                    for (var i = 0; i < registros.length; i++) {
+                        resultadoDiv.innerHTML += registros[i].fecha + ': ' + registros[i].dato + '<br>';
+                        fechas.push(registros[i].fecha);
+                        precios.push(registros[i].dato);
+                    }
+                } else {
+                    resultadoDiv.innerHTML = 'No se encontraron registros.';
+                }
+            } else {
+                resultadoDiv.innerHTML = 'No se encontró la serie solicitada.';
+            }
+        }
+
+        function graficarPrecios() {
+            if (chart) {
+                chart.destroy();
+            }
+
+            var ctx = document.getElementById('chart1').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: fechas,
+                    datasets: [{
+                        label: 'Precio del dólar',
+                        data: precios,
+                        backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
